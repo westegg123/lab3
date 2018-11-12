@@ -12,7 +12,7 @@
 
 typedef struct 
 {
-	char GHR; /* 8 bits */
+	unsigned char GHR; /* 8 bits */
 	int PHT[PHT_SIZE]; /* each value will be in range [0,3], representing one of the 4 possible states */
 } gshare_t;
 
@@ -28,6 +28,7 @@ typedef struct
 {
     gshare_t gshare; /* gshare */
     BTB_entry_t BTB[BTB_SIZE]; /* BTB */
+    uint64_t last_prediction;
 } bp_t;
  
 void bp_predict(/*......*/);
