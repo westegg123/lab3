@@ -29,9 +29,9 @@ typedef struct
     gshare_t gshare; /* gshare */
     BTB_entry_t BTB[BTB_SIZE]; /* BTB */
 } bp_t;
-
-// gshare_t update_GHR(gshare_t aGshare);
+ 
 void bp_predict(/*......*/);
 void bp_update(/*......*/);
+
 
 #endif

@@ -24,5 +24,6 @@ parsed_instruction_holder get_holder(uint32_t instruction);
 
 // PRINT HOLDER
 void print_instr(parsed_instruction_holder HOLDER);
+void print_operation(uint32_t instruction);
 
 #endif
