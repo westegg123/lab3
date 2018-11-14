@@ -103,6 +103,14 @@ void bp_predict() {
     CURRENT_STATE.PC = myPCPrediction;
 }
 
+BTB_entry_t clear_BTB_entry(BTB_entry_t entry) {
+	entry.address_tag = 0;
+	entry.valid = 0;
+	entry.conditional = 0;
+	entry.branch_target = 0;
+	return entry;
+}
+
 bp_t intialize_bp(bp_t BP) {
 	BP.gshare.GHR = 0;
 

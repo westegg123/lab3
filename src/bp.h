@@ -32,11 +32,14 @@ typedef struct
  
 void bp_predict(/*......*/);
 void bp_update(/*......*/);
-bp_t intialize_bp(bp_t BP);
 
 /* Printing Functions */
 void print_BTB(bp_t BP);
 void print_GShare(bp_t BP);
 void print_bp(bp_t BP);
+
+/* clear functions */
+BTB_entry_t clear_BTB_entry(BTB_entry_t entry);
+bp_t intialize_bp(bp_t BP);
 
 #endif

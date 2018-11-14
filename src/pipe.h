@@ -10,6 +10,7 @@
 #include "shell.h"
 #include "stdbool.h"
 #include "helper.h"
+#include "bp.h"
 #include <limits.h>
 
 
@@ -27,10 +28,12 @@ typedef struct CPU_State {
 // PIPELINE REGISTER STRUCTS
 typedef struct IF_ID_REGS {
 	uint64_t PC, instruction;
+	BTB_entry_t accessed_entry;
 } IF_ID_REGS;
 
 typedef struct ID_EX_REGS {
 	uint64_t PC, instruction, immediate, primary_data_holder, secondary_data_holder;
+	BTB_entry_t accessed_entry;
 } ID_EX_REGS;
 
 typedef struct EX_MEM_REGS {
