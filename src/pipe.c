@@ -696,7 +696,7 @@ void pipe_stage_execute() {
 			bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 		} else {
 			printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
-			BTB_entry_t myBTB_entry = BP.BTB[get_BTB_index(myExecuteInstructionPC)];
+			BTB_entry_t myBTB_entry = BP.BTB[get_instruction_segment(2, 11, myExecuteInstructionPC)];
 			if ((myBTB_entry.valid != 1 || myBTB_entry.address_tag != myExecuteInstructionPC) &&
 				CURRENT_REGS.ID_EX.immediate == 4) {
 				printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
