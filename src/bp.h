@@ -28,11 +28,11 @@ typedef struct
 {
     gshare_t gshare; /* gshare */
     BTB_entry_t BTB[BTB_SIZE]; /* BTB */
-    uint64_t last_prediction;
 } bp_t;
  
 void bp_predict(/*......*/);
 void bp_update(/*......*/);
+bp_t intialize_bp(bp_t BP);
 
 
 #endif
