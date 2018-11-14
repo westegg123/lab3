@@ -103,6 +103,30 @@ bp_t intialize_bp(bp_t BP) {
 	return BP;
 }
 
+void print_BTB(bp_t BP) {
+	for (int i = 0; i < BTB_SIZE; i++) {
+		if (BP.BTB[i].valid) {
+			printf("Index %d:\n 	Address_tag: %lx \n", i, BP.BTB[i].address_tag);
+			printf("	Valid bit: %d, Unconditional Bit; %d\n", BP.BTB[i].valid, BP.BTB[i].unconditional);
+			printf("Branch Target: %x\n", BP.BTB[i].branch_target);
+		}
+	}
+}
+
+void print_Gshare(bp_t BP) {
+	printf("GHSARE\n");
+	printf("GHR: %x\n", BP.gshare.GHR);
+	for (int i = 0; i < PHT_SIZE; i++) {
+		if (BP.gshare.PHT[i]) {
+			printf("Index %d: %d\n", i, BP.gshare.PHT[i]);
+		}
+	}
+}
+
+void print_bp(bp_t BP) {
+	print_Gshare(BP);
+	print_BTB(BP);
+}
 
 void bp_update(uint64_t aAddressTag, uint64_t aTargetBranch, int aIsConditional, int aIsValid, int aBranchTaken) {
     /* Update BTB */

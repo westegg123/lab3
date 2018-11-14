@@ -38,8 +38,8 @@ bp_t BP;
 /* FLAGS */
 int FETCH_MORE = 1;
 int BUBBLE = 0;
-int PREDICTION_MISS = 0;
 int CORRECT_BRANCHES_NUMBER = 0;
+int VERBOSE = 0;
 /* Notes on forwarding:
  * For bubbling, need to implement a control for each function
  * For forwarding - need to forward in the ID stage of each dependent instruction
@@ -261,12 +261,17 @@ void handle_subs() {
 	handle_sub();
 }
 
-void handle_br() {
-	if (CURRENT_STATE.PC != CURRENT_REGS.ID_EX.primary_data_holder) {
-		CURRENT_STATE.PC = CURRENT_REGS.ID_EX.primary_data_holder;
+void handle_br(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructionPC) {
+	uint32_t myActualNextInstructionPC = aExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
+	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
+		printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+		BUBBLE = 1;
+		CURRENT_STATE.PC = myActualNextInstructionPC;
 		clear_IF_ID_REGS();
 		clear_ID_EX_REGS();
-		BUBBLE = 1;
+		bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
+	} else {
+		printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
 	}
 }
 
@@ -412,10 +417,14 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 void pipe_init() {
     memset(&CURRENT_STATE, 0, sizeof(CPU_State));
     CURRENT_STATE.PC = 0x00400000;
+    BP = intialize_bp(BP);
 }
 
 void pipe_cycle() {
-	//printf("--------CYCLE START (%lx)-----\n", CURRENT_STATE.PC);
+	if (VERBOSE) {
+		printf("--------CYCLE START -----\n");
+	}
+
 	START_REGS = CURRENT_REGS;
 	pipe_stage_wb();
 	pipe_stage_mem();
@@ -423,18 +432,21 @@ void pipe_cycle() {
 	pipe_stage_decode();
 	pipe_stage_fetch();
 	reset_bubble();
-//	printf("--------CYCLE END-------\n\n");
+	if (VERBOSE) {
+		printf("-------- CYCLE END (%d, %lx) -------\n\n", (stat_cycles + 1), CURRENT_STATE.PC);
+	}
 }
 
 void pipe_stage_wb() {
-	// printf("\nWrite BACK -----------> ");
-	// print_operation(CURRENT_REGS.MEM_WB.instruction);
+	if (VERBOSE) {
+		printf("\nWrite BACK -----------> ");
+		print_operation(CURRENT_REGS.MEM_WB.instruction);
+	}
+	
 	if (CURRENT_REGS.MEM_WB.instruction == 0) {
-		//printf("Write Back Stage Skipped\n");
 		return;
 	} else if (CURRENT_REGS.MEM_WB.instruction == HLT) {
 		//printf("FINITO\n");
-		//printf("WRITING INSTRUCTION: %lx\n", CURRENT_REGS.MEM_WB.instruction);
 		stat_inst_retire++;
 		RUN_BIT = 0;
 		return;
@@ -485,8 +497,10 @@ void pipe_stage_wb() {
 }
 
 void pipe_stage_mem() {
-	// printf("Memory -----------> ");
-	// print_operation(CURRENT_REGS.EX_MEM.instruction);
+	if (VERBOSE) {
+		printf("Memory -----------> ");
+		print_operation(CURRENT_REGS.EX_MEM.instruction);
+	}
 
 	if (CURRENT_REGS.EX_MEM.instruction == 0) {
 		//printf("Memmeory Stage Skipped\n");
@@ -543,8 +557,10 @@ void forward_data (parsed_instruction_holder HOLDER, int result, uint64_t data) 
 
 // R INSTR EXECUTE STAGE
 void pipe_stage_execute() {
-	// printf("Execute -----------> ");
-	// print_operation(CURRENT_REGS.ID_EX.instruction);
+	if (VERBOSE) {	
+		printf("Execute -----------> ");
+		print_operation(CURRENT_REGS.ID_EX.instruction);
+	}
 
 	// printf("PC OF INSTRUCTION TO EXECUTE: %lx. PC OF NEXT INSTRUCTION: %lx\n", CURRENT_REGS.ID_EX.PC, CURRENT_REGS.IF_ID.PC);
 
@@ -560,7 +576,10 @@ void pipe_stage_execute() {
 
 	BUBBLE = (hazard_detection_unit(CURRENT_REGS.ID_EX.instruction, CURRENT_REGS.EX_MEM.instruction) != 0) ? 1 : 0;
 	if (BUBBLE != 0) {
-		printf("BUBBLING!\n");
+		if (VERBOSE) {
+			printf("BUBBLING!\n");
+		}
+
 		clear_EX_MEM_REGS();
 		return;
 	}
@@ -583,9 +602,12 @@ void pipe_stage_execute() {
 		forward_data(HOLDER, bubble_result, CURRENT_REGS.MEM_WB.fetched_data);
 	}
 
-
 	clear_EX_MEM_REGS();
+	
 	CURRENT_REGS.EX_MEM.instruction = CURRENT_REGS.ID_EX.instruction;
+	uint32_t myExecuteInstructionPC = CURRENT_REGS.ID_EX.PC;
+	uint32_t myPredictedNextInstructionPC = CURRENT_REGS.IF_ID.PC;
+	
 	if (HOLDER.format == 1) {
 		if (HOLDER.opcode == 0x458 || HOLDER.opcode == 0x459) {
 			handle_add();
@@ -620,7 +642,7 @@ void pipe_stage_execute() {
 		} else if (HOLDER.opcode == 0x758 || HOLDER.opcode == 0x759) {
 			handle_subs();
 		} else if (HOLDER.opcode == 0x6B0) {
-			handle_br();
+			handle_br(myExecuteInstructionPC, myPredictedNextInstructionPC);
 		} else if (HOLDER.opcode == 0x4D8) {
 			handle_mul();
 		}
@@ -655,30 +677,20 @@ void pipe_stage_execute() {
 			CURRENT_REGS.EX_MEM.data_to_write = get_memory_segment(0,31, CURRENT_REGS.ID_EX.secondary_data_holder);
 		}
 	} else if (HOLDER.format == 4) {
-		if (CURRENT_STATE.PC != (CURRENT_REGS.ID_EX.PC + CURRENT_REGS.ID_EX.immediate)) {
-			uint32_t myExecuteInstructionPC = CURRENT_REGS.ID_EX.PC;
-			// uint32_t myPredictedNextInstructionPC = BP.last_prediction;
-			uint32_t myPredictedNextInstructionPC = CURRENT_REGS.IF_ID.PC;
-			uint32_t myActualNextInstructionPC = myExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
-
-			if (myActualNextInstructionPC != myPredictedNextInstructionPC) {
-				printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
-				BUBBLE = 1;
-				PREDICTION_MISS = 1;
-				clear_IF_ID_REGS();
-				clear_ID_EX_REGS();
-				CURRENT_STATE.PC = myActualNextInstructionPC;
-			} else {
-				printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
-			}
-				// CURRENT_STATE.PC = myActualNextInstructionPC;
+		uint32_t myActualNextInstructionPC = myExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
+		if (myActualNextInstructionPC != myPredictedNextInstructionPC) {
+			printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+			BUBBLE = 1;
+			CURRENT_STATE.PC = myActualNextInstructionPC;
+			clear_IF_ID_REGS();
+			clear_ID_EX_REGS();
 			bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
+		} else {
+			printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
 		}
+		//bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
+	
 	} else if (HOLDER.format == 5) {
-		uint32_t myExecuteInstructionPC = CURRENT_REGS.ID_EX.PC;
-		uint32_t myPredictedNextInstructionPC = CURRENT_REGS.IF_ID.PC;
-
-		// uint32_t myPredictedNextInstructionPC = BP.last_prediction;
 		printf("myExecuteInstructionPC: %lx, myPredictedNextInstructionPC: %lx\n", myExecuteInstructionPC, myPredictedNextInstructionPC);
 		if (HOLDER.opcode >= 0x5A8 && HOLDER.opcode <= 0x5AF) {
 			handle_cbnz(myExecuteInstructionPC, myPredictedNextInstructionPC);
@@ -694,8 +706,10 @@ void pipe_stage_execute() {
 
 
 void pipe_stage_decode() {
-	// printf("Decode -----------> ");
-	// print_operation(CURRENT_REGS.IF_ID.instruction);
+	if (VERBOSE) {
+		printf("Decode -----------> ");
+		print_operation(CURRENT_REGS.IF_ID.instruction);
+	}
 
 	if (BUBBLE != 0) {
 		return;
@@ -758,9 +772,11 @@ void pipe_stage_decode() {
 }
 
 void pipe_stage_fetch() {
-	// printf("Fetch -----------> ");
+	if (VERBOSE) {
+		printf("Fetch -----------> ");
+	}
+
 	if (BUBBLE != 0) {
-		printf("BUBBLE\n");
 		return;
 	}
 
@@ -768,9 +784,11 @@ void pipe_stage_fetch() {
 	if (FETCH_MORE != 0) {
 		clear_IF_ID_REGS();
 		CURRENT_REGS.IF_ID.instruction = mem_read_32(CURRENT_STATE.PC);
-		// print_operation(CURRENT_REGS.IF_ID.instruction);
 		CURRENT_REGS.IF_ID.PC = CURRENT_STATE.PC;
 		bp_predict();
-		//CURRENT_STATE.PC += 4;
 	} 
+
+	if (VERBOSE) {
+		print_operation(CURRENT_REGS.IF_ID.instruction);
+	}
 }
