@@ -42,7 +42,7 @@ int BUBBLE = 0;
 int BRANCH_COUNT = 0, PREDICTION_MISS = 0;
 
 /************************ TURN ON VERBOSE MODE IF 1 ******************************/
-int VERBOSE = 1;
+int VERBOSE = 0;
 
 /************************************ CONSTANTS ************************************/
 /* 
@@ -99,7 +99,7 @@ void reset_bubble() {
 void clear_IF_ID_REGS() {
 	CURRENT_REGS.IF_ID.PC = 0;
 	CURRENT_REGS.IF_ID.instruction = 0;
-	CURRENT_REGS.IF_ID.accessed_entry = clear_BTB_entry(CURRENT_REGS.IF_ID.accessed_entry);
+	// CURRENT_REGS.IF_ID.accessed_entry = clear_BTB_entry(CURRENT_REGS.IF_ID.accessed_entry);
 }
 
 void clear_ID_EX_REGS() {
@@ -108,7 +108,7 @@ void clear_ID_EX_REGS() {
 	CURRENT_REGS.ID_EX.immediate = 0;
 	CURRENT_REGS.ID_EX.primary_data_holder = 0;
 	CURRENT_REGS.ID_EX.secondary_data_holder = 0;
-	CURRENT_REGS.IF_ID.accessed_entry = clear_BTB_entry(CURRENT_REGS.IF_ID.accessed_entry);
+	// CURRENT_REGS.IF_ID.accessed_entry = clear_BTB_entry(CURRENT_REGS.IF_ID.accessed_entry);
 }
 
 void clear_EX_MEM_REGS() {
@@ -223,10 +223,10 @@ int forward(uint32_t depend_instruct, uint32_t ind_instruct) {
 	return 0;
 }
 
-void set_settings_pred_miss (uint32_t myActualNextInstructionPC) {
+void set_settings_pred_miss (uint32_t aActualNextInstructionPC) {
 	PREDICTION_MISS++;
 	BUBBLE = 1;
-	CURRENT_STATE.PC = myActualNextInstructionPC;
+	CURRENT_STATE.PC = aActualNextInstructionPC;
 	clear_IF_ID_REGS();
 	clear_ID_EX_REGS();
 }
@@ -281,7 +281,7 @@ void handle_br(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructio
 		//bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 	} else {
 		//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
-		BTB_entry_t myBTB_entry = BP.BTB[get_instruction_segment(2, 11, aExecuteInstructionPC)];
+		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
 		if ((myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC) &&
 			((aPredictedNextInstructionPC - aExecuteInstructionPC) == 4)) {
 			//printf("UNCONDITIONAL BRANCH (BR): PREDICTION INCORRECT. - LUCKY GUESS\n");
@@ -371,13 +371,13 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 
 	// printf("B.COND PREDICTED BRANCH: %lx - B.COND ACTUAL BRANCH: %lx\n", aPredictedNextInstructionPC, myActualNextInstructionPC);
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		// printf("B.COND BRANCH: PREDICTION INCORRECT.\n");
+		printf("B.COND BRANCH: PREDICTION INCORRECT.\n");
 		set_settings_pred_miss(myActualNextInstructionPC);
 	} else {
-		BTB_entry_t myBTB_entry = CURRENT_REGS.IF_ID.accessed_entry;
-		if (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
-			myBTB_entry.branch_target != myActualNextInstructionPC) {
-			printf("B.COND BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
+		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
+		if (myBranchTaken && (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
+			myBTB_entry.branch_target != myActualNextInstructionPC)) {
+			// printf("B.COND BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
 	}
@@ -400,10 +400,11 @@ void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstruct
 		//printf("CBNZ BRANCH: PREDICTION INCORRECT.\n");
 		set_settings_pred_miss(myActualNextInstructionPC);
 	} else {
-		BTB_entry_t myBTB_entry = CURRENT_REGS.IF_ID.accessed_entry;
-		if (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
-			myBTB_entry.branch_target != myActualNextInstructionPC) {
-			printf("CBNZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
+		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
+		if (myBranchTaken && (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
+			myBTB_entry.branch_target != myActualNextInstructionPC)) {
+			printf("tar: %lx\n", myBTB_entry.branch_target);
+			// printf("CBNZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
 	}
@@ -426,9 +427,9 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 		//printf("CBZ BRANCH: PREDICTION INCORRECT.\n");
 		set_settings_pred_miss(myActualNextInstructionPC);
 	} else {
-		BTB_entry_t myBTB_entry = CURRENT_REGS.IF_ID.accessed_entry;
-		if (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
-			myBTB_entry.branch_target != myActualNextInstructionPC) {
+		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
+		if (myBranchTaken && (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
+			myBTB_entry.branch_target != myActualNextInstructionPC)) {
 			printf("CBZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
@@ -441,7 +442,6 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 void pipe_init() {
     memset(&CURRENT_STATE, 0, sizeof(CPU_State));
     CURRENT_STATE.PC = 0x00400000;
-    BP = intialize_bp(BP);
 }
 
 void pipe_cycle() {
@@ -712,7 +712,7 @@ void pipe_stage_execute() {
 			//bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 		} else {
 			//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
-			BTB_entry_t myBTB_entry = CURRENT_REGS.IF_ID.accessed_entry;
+			BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
 			//BTB_entry_t myBTB_entry = BP.BTB[get_instruction_segment(2, 11, myExecuteInstructionPC)];
 			
 			// HANDLES THE CASE THAT YOU ARE LUCKY
@@ -825,7 +825,7 @@ void pipe_stage_fetch() {
 		clear_IF_ID_REGS();
 		CURRENT_REGS.IF_ID.instruction = mem_read_32(CURRENT_STATE.PC);
 		CURRENT_REGS.IF_ID.PC = CURRENT_STATE.PC;
-		CURRENT_REGS.IF_ID.accessed_entry = BP.BTB[get_instruction_segment(2, 11, CURRENT_STATE.PC)];
+		CURRENT_REGS.IF_ID.accessed_entry = BP.BTB[get_BTB_index(CURRENT_STATE.PC)];
 
 
 		if (VERBOSE) {

@@ -99,34 +99,8 @@ void bp_predict() {
 		}
     }
 
-    //printf("PREDICTING: %lx\n", myPCPrediction);
+    // printf("PREDICTING: %lx\n", myPCPrediction);
     CURRENT_STATE.PC = myPCPrediction;
-}
-
-BTB_entry_t clear_BTB_entry(BTB_entry_t entry) {
-	entry.address_tag = 0;
-	entry.valid = 0;
-	entry.conditional = 0;
-	entry.branch_target = 0;
-	return entry;
-}
-
-BTB_
-
-bp_t intialize_bp(bp_t BP) {
-	BP.gshare.GHR = 0;
-
-	for (int i = 0; i < PHT_SIZE; i++) {
-		BP.gshare.PHT[i] = 0;
-	}
-
-	for (int i = 0; i < BTB_SIZE; i++) {
-		BP.BTB[i].address_tag = 0;
-		BP.BTB[i].valid = 0;
-		BP.BTB[i].conditional = 0;
-		BP.BTB[i].branch_target = 0;
-	}
-	return BP;
 }
 
 void print_BTB(bp_t BP) {
