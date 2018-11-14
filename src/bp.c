@@ -13,6 +13,8 @@
 
 extern bp_t BP;
 extern CPU_State CURRENT_STATE;
+#define BTB_SIZE 1024
+#define PHT_SIZE 256
 
 uint32_t get_8_pc_bits(uint32_t aPC) {
 	return get_instruction_segment(2, 9, aPC);
@@ -75,15 +77,32 @@ void bp_predict() {
     uint32_t myBTB_index = get_BTB_index(CURRENT_STATE.PC);
     gshare_t myGshare = BP.gshare;
     if (BP.BTB[myBTB_index].branch_target != 0) {
-    	if ((BP.BTB[myBTB_index].unconditional == 1) || should_take_branch(myGshare.PHT[myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC)])) {
+    	if ((BP.BTB[myBTB_index].unconditional == 1) || 
+    		should_take_branch(myGshare.PHT[myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC)])) {
     		// printf("BTB HIT!\n");
     		myPCPrediction = BP.BTB[myBTB_index].branch_target;
     	}
     }
     // printf("PREDICTING: %lx\n", myPCPrediction);
     CURRENT_STATE.PC = myPCPrediction;
-    BP.last_prediction = myPCPrediction;
 }
+
+bp_t intialize_bp(bp_t BP) {
+	BP.gshare.GHR = 0;
+
+	for (int i = 0; i < PHT_SIZE; i++) {
+		BP.gshare.PHT[i] = 0;
+	}
+
+	for (int i = 0; i < BTB_SIZE; i++) {
+		BP.BTB[i].address_tag = 0;
+		BP.BTB[i].valid = 0;
+		BP.BTB[i].unconditional = 0;
+		BP.BTB[i].branch_target = 0;
+	}
+	return BP;
+}
+
 
 void bp_update(uint64_t aAddressTag, uint64_t aTargetBranch, int aIsConditional, int aIsValid, int aBranchTaken) {
     /* Update BTB */
