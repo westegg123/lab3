@@ -86,20 +86,20 @@ void bp_predict() {
     // 	}
     // }
 
-    printf("This is my index: %d\n", get_BTB_index(CURRENT_STATE.PC));
+    //printf("This is my index: %d\n", get_BTB_index(CURRENT_STATE.PC));
     if (myBTB_entry.valid == 1 && myBTB_entry.address_tag == CURRENT_STATE.PC) {
 		if (myBTB_entry.conditional == 0) {
-			printf("BTB HIT! (conditional)\n");
+			//printf("BTB HIT! (conditional)\n");
 			myPCPrediction = myBTB_entry.branch_target;
 		} else {
 			if (should_take_branch(myGshare.PHT[(myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC))])) {
-				printf("BTB HIT! (CONDITIONAL)\n");
+				//printf("BTB HIT! (CONDITIONAL)\n");
 				myPCPrediction = myBTB_entry.branch_target;
 			}
 		}
     }
 
-    printf("PREDICTING: %lx\n", myPCPrediction);
+    //printf("PREDICTING: %lx\n", myPCPrediction);
     CURRENT_STATE.PC = myPCPrediction;
 }
 
