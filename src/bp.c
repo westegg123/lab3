@@ -137,5 +137,4 @@ void bp_update(uint64_t aAddressTag, uint64_t aTargetBranch, int aIsConditional,
 
     /* Update global history register */
     update_GHR(aIsConditional, aBranchTaken);
-
 }

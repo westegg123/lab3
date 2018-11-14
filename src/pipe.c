@@ -99,7 +99,7 @@ void reset_bubble() {
 void clear_IF_ID_REGS() {
 	CURRENT_REGS.IF_ID.PC = 0;
 	CURRENT_REGS.IF_ID.instruction = 0;
-	// CURRENT_REGS.IF_ID.accessed_entry = clear_BTB_entry(CURRENT_REGS.IF_ID.accessed_entry);
+	//CURRENT_REGS.IF_ID.taken = 0; 
 }
 
 void clear_ID_EX_REGS() {
@@ -108,7 +108,7 @@ void clear_ID_EX_REGS() {
 	CURRENT_REGS.ID_EX.immediate = 0;
 	CURRENT_REGS.ID_EX.primary_data_holder = 0;
 	CURRENT_REGS.ID_EX.secondary_data_holder = 0;
-	// CURRENT_REGS.IF_ID.accessed_entry = clear_BTB_entry(CURRENT_REGS.IF_ID.accessed_entry);
+	//CURRENT_REGS.ID_EX.taken = 0;
 }
 
 void clear_EX_MEM_REGS() {
@@ -408,6 +408,7 @@ void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstruct
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
 	}
+
 	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
 }
 
@@ -433,6 +434,17 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 			printf("CBZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
+
+		// ONLY CONCERNED IF THE TARGET BRANCH IS CP + 4 - THAT MEANS THAT IMMEDIATE = 4
+		// if (CURRENT_REGS.ID_EX.immediate == 4) {
+		// 	if (((myBranchTaken == 1) && (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC) &&  
+		// 		(CURRENT_REGS.ID_EX.taken == 0)) || 
+		// 		((myBranchTaken == 0) && (myBTB_entry.valid == 1 || myBTB_entry.address_tag == aExecuteInstructionPC)
+		// 		&& (PHT says taken) && (CURRENT_REGS.ID_EX.taken == 0))) {
+		// 		set_settings_pred_miss(myActualNextInstructionPC);
+		// 	}
+		// }
+
 	}
 	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
 }
@@ -806,6 +818,7 @@ void pipe_stage_decode() {
 	CURRENT_REGS.ID_EX.instruction = CURRENT_REGS.IF_ID.instruction;
 	CURRENT_REGS.ID_EX.PC = CURRENT_REGS.IF_ID.PC;
 	CURRENT_REGS.ID_EX.accessed_entry = CURRENT_REGS.IF_ID.accessed_entry;
+	//CURRENT_REGS.ID_EX.taken = CURRENT_REGS.IF_ID.taken;
 }
 
 void pipe_stage_fetch() {
@@ -826,7 +839,7 @@ void pipe_stage_fetch() {
 		CURRENT_REGS.IF_ID.instruction = mem_read_32(CURRENT_STATE.PC);
 		CURRENT_REGS.IF_ID.PC = CURRENT_STATE.PC;
 		CURRENT_REGS.IF_ID.accessed_entry = BP.BTB[get_BTB_index(CURRENT_STATE.PC)];
-
+		//CURRENT_REGS.IF_ID.taken = should_take_branch(BP.gshare.PHT[(BP.gshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC))])
 
 		if (VERBOSE) {
 			print_operation(CURRENT_REGS.IF_ID.instruction);

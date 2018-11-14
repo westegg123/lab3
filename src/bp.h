@@ -33,6 +33,9 @@ typedef struct
 void bp_predict(/*......*/);
 void bp_update(/*......*/);
 uint32_t get_BTB_index();
+uint32_t get_8_pc_bits();
+int should_take_branch();
+
 /* Printing Functions */
 void print_BTB(bp_t BP);
 void print_GShare(bp_t BP);
