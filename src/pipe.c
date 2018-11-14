@@ -42,7 +42,7 @@ int BUBBLE = 0;
 int BRANCH_COUNT = 0, PREDICTION_MISS = 0;
 
 /************************ TURN ON VERBOSE MODE IF 1 ******************************/
-int VERBOSE = 0;
+int VERBOSE = 1;
 
 /************************************ CONSTANTS ************************************/
 /* 
@@ -687,15 +687,17 @@ void pipe_stage_execute() {
 
 		uint32_t myActualNextInstructionPC = myExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
 		if (myActualNextInstructionPC != myPredictedNextInstructionPC) {
-			//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+			printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
 			PREDICTION_MISS++;
 			BUBBLE = 1;
 			CURRENT_STATE.PC = myActualNextInstructionPC;
 			clear_IF_ID_REGS();
 			clear_ID_EX_REGS();
 			bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
+			print_bp(BP);
 		} else {
-			//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
+			print_bp(BP);
+			printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
 		}
 		//bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 	

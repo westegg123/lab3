@@ -73,6 +73,7 @@ int should_take_branch(int aSaturatingCounter) {
 }
 
 void bp_predict() {
+    print_bp(BP);
     uint64_t myPCPrediction = CURRENT_STATE.PC + 4;
     gshare_t myGshare = BP.gshare;
     BTB_entry_t myBTB_entry = BP.BTB[get_BTB_index(CURRENT_STATE.PC)];
@@ -85,13 +86,14 @@ void bp_predict() {
     // 	}
     // }
 
+    printf("This is my index: %d\n", get_BTB_index(CURRENT_STATE.PC));
     if (myBTB_entry.valid == 1 && myBTB_entry.address_tag == CURRENT_STATE.PC) {
 		if (myBTB_entry.unconditional == 0) {
-			// printf("BTB HIT! (UNCONDITIONAL)\n");
+			printf("BTB HIT! (UNCONDITIONAL)\n");
 			myPCPrediction = myBTB_entry.branch_target;
 		} else {
 			if (should_take_branch(myGshare.PHT[(myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC))])) {
-				// printf("BTB HIT! (CONDITIONAL)\n");
+				printf("BTB HIT! (CONDITIONAL)\n");
 				myPCPrediction = myBTB_entry.branch_target;
 			}
 		}
