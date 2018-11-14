@@ -278,17 +278,18 @@ void handle_br(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructio
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
 		//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
 		set_settings_pred_miss(myActualNextInstructionPC);
-		bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
+		//bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 	} else {
 		//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
 		BTB_entry_t myBTB_entry = BP.BTB[get_instruction_segment(2, 11, aExecuteInstructionPC)];
 		if ((myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC) &&
 			((aPredictedNextInstructionPC - aExecuteInstructionPC) == 4)) {
-			//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+			//printf("UNCONDITIONAL BRANCH (BR): PREDICTION INCORRECT. - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
-			bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
+			//bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 		}
 	}
+	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 }
 
 void handle_mul() {
@@ -374,10 +375,9 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 		set_settings_pred_miss(myActualNextInstructionPC);
 	} else {
 		BTB_entry_t myBTB_entry = CURRENT_REGS.IF_ID.accessed_entry;
-		// HANDLES THE CASE THAT YOU ARE LUCKY
 		if (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
 			myBTB_entry.branch_target != myActualNextInstructionPC) {
-			//printf("B.COND BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
+			printf("B.COND BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
 	}
@@ -401,10 +401,9 @@ void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstruct
 		set_settings_pred_miss(myActualNextInstructionPC);
 	} else {
 		BTB_entry_t myBTB_entry = CURRENT_REGS.IF_ID.accessed_entry;
-		// HANDLES THE CASE THAT YOU ARE LUCKY
 		if (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
 			myBTB_entry.branch_target != myActualNextInstructionPC) {
-			//printf("CBNZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
+			printf("CBNZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
 	}
@@ -428,10 +427,9 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 		set_settings_pred_miss(myActualNextInstructionPC);
 	} else {
 		BTB_entry_t myBTB_entry = CURRENT_REGS.IF_ID.accessed_entry;
-		// HANDLES THE CASE THAT YOU ARE LUCKY
 		if (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
 			myBTB_entry.branch_target != myActualNextInstructionPC) {
-			//printf("CBZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
+			printf("CBZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
 	}

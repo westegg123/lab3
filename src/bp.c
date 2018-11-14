@@ -88,12 +88,12 @@ void bp_predict() {
 
     //printf("This is my index: %d\n", get_BTB_index(CURRENT_STATE.PC));
     if (myBTB_entry.valid == 1 && myBTB_entry.address_tag == CURRENT_STATE.PC) {
-		if (myBTB_entry.conditional == 0) {
-			//printf("BTB HIT! (conditional)\n");
+		if (myBTB_entry.conditional == 0) { // If Unconditional Branch
+			//printf("BTB HIT! (UNCONDITIONAL BRANCH)\n");
 			myPCPrediction = myBTB_entry.branch_target;
-		} else {
+		} else { // If Conditional Branch
 			if (should_take_branch(myGshare.PHT[(myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC))])) {
-				//printf("BTB HIT! (CONDITIONAL)\n");
+				//printf("BTB HIT! (CONDITIONAL BRANCH)\n");
 				myPCPrediction = myBTB_entry.branch_target;
 			}
 		}
@@ -110,6 +110,8 @@ BTB_entry_t clear_BTB_entry(BTB_entry_t entry) {
 	entry.branch_target = 0;
 	return entry;
 }
+
+BTB_
 
 bp_t intialize_bp(bp_t BP) {
 	BP.gshare.GHR = 0;
