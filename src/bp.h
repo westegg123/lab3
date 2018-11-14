@@ -39,5 +39,4 @@ void print_BTB(bp_t BP);
 void print_GShare(bp_t BP);
 void print_bp(bp_t BP);
 
-
 #endif

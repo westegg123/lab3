@@ -35,18 +35,15 @@
 CPU_State CURRENT_STATE;
 Pipeline_Regs CURRENT_REGS, START_REGS;
 bp_t BP;
+
 /* FLAGS */
 int FETCH_MORE = 1;
 int BUBBLE = 0;
 int CORRECT_BRANCHES_NUMBER = 0;
-int VERBOSE = 0;
-/* Notes on forwarding:
- * For bubbling, need to implement a control for each function
- * For forwarding - need to forward in the ID stage of each dependent instruction
- * For dependencies of two, need to check forwarding issues 
- * Need to pay attention to STUR and CBZ instruction
- */
+int BRANCH_COUNT = 0, PREDICTION_MISS = 0;
 
+/************************ TURN ON VERBOSE MODE IF 1 ******************************/
+int VERBOSE = 0;
 
 /************************************ CONSTANTS ************************************/
 /* 
@@ -89,6 +86,12 @@ int VERBOSE = 0;
 
 
 /************************************ HELPERS ************************************/
+
+void get_hit_stats() {
+	double hit_rate = 100 * (1 - (PREDICTION_MISS/BRANCH_COUNT));
+	double miss_rate = 100 - hit_rate;
+	printf("This is the hit rate: %.2f miss rate: %.2f\n", hit_rate, miss_rate);
+}
 
 void reset_bubble() {
 	BUBBLE = 0;
@@ -264,14 +267,16 @@ void handle_subs() {
 void handle_br(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructionPC) {
 	uint32_t myActualNextInstructionPC = aExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+		//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
 		BUBBLE = 1;
+		PREDICTION_MISS++;
 		CURRENT_STATE.PC = myActualNextInstructionPC;
+
 		clear_IF_ID_REGS();
 		clear_ID_EX_REGS();
 		bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 	} else {
-		printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
+		//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
 	}
 }
 
@@ -321,7 +326,6 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 	if (cond == 0) {
 		// EQ or NE
 		//printf("HANDLING BEQ or BNE\n");
-		//printf("flag Z:	%x\n", flag_Z);
 		if (flag_Z == 1) {
 			result = 1;	
 		}
@@ -356,10 +360,12 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 	// printf("B.COND PREDICTED BRANCH: %lx - B.COND ACTUAL BRANCH: %lx\n", aPredictedNextInstructionPC, myActualNextInstructionPC);
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
 		// printf("B.COND BRANCH: PREDICTION INCORRECT.\n");
-		clear_IF_ID_REGS();
-		clear_ID_EX_REGS();
+		PREDICTION_MISS++;
 		BUBBLE = 1;
 		CURRENT_STATE.PC = myActualNextInstructionPC;
+
+		clear_IF_ID_REGS();
+		clear_ID_EX_REGS();
 	} else {
 		CORRECT_BRANCHES_NUMBER += 1;
 	}
@@ -381,11 +387,13 @@ void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstruct
 	}
 
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		printf("CBNZ BRANCH: PREDICTION INCORRECT.\n");
-		clear_IF_ID_REGS();
-		clear_ID_EX_REGS();
+		//printf("CBNZ BRANCH: PREDICTION INCORRECT.\n");
+		PREDICTION_MISS++;
 		BUBBLE = 1;
 		CURRENT_STATE.PC = myActualNextInstructionPC;
+
+		clear_IF_ID_REGS();
+		clear_ID_EX_REGS();
 	}
 	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
 }
@@ -403,11 +411,13 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 	}
 
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		printf("CBZ BRANCH: PREDICTION INCORRECT.\n");
-		clear_IF_ID_REGS();
-		clear_ID_EX_REGS();
+		//printf("CBZ BRANCH: PREDICTION INCORRECT.\n");
+		
+		PREDICTION_MISS++;
 		BUBBLE = 1;
 		CURRENT_STATE.PC = myActualNextInstructionPC;
+		clear_IF_ID_REGS();
+		clear_ID_EX_REGS();
 	}
 	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
 }
@@ -447,6 +457,7 @@ void pipe_stage_wb() {
 		return;
 	} else if (CURRENT_REGS.MEM_WB.instruction == HLT) {
 		//printf("FINITO\n");
+		//get_hit_stats();
 		stat_inst_retire++;
 		RUN_BIT = 0;
 		return;
@@ -642,6 +653,7 @@ void pipe_stage_execute() {
 		} else if (HOLDER.opcode == 0x758 || HOLDER.opcode == 0x759) {
 			handle_subs();
 		} else if (HOLDER.opcode == 0x6B0) {
+			BRANCH_COUNT++;
 			handle_br(myExecuteInstructionPC, myPredictedNextInstructionPC);
 		} else if (HOLDER.opcode == 0x4D8) {
 			handle_mul();
@@ -677,21 +689,25 @@ void pipe_stage_execute() {
 			CURRENT_REGS.EX_MEM.data_to_write = get_memory_segment(0,31, CURRENT_REGS.ID_EX.secondary_data_holder);
 		}
 	} else if (HOLDER.format == 4) {
+		BRANCH_COUNT++;
+
 		uint32_t myActualNextInstructionPC = myExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
 		if (myActualNextInstructionPC != myPredictedNextInstructionPC) {
-			printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+			//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+			PREDICTION_MISS++;
 			BUBBLE = 1;
 			CURRENT_STATE.PC = myActualNextInstructionPC;
 			clear_IF_ID_REGS();
 			clear_ID_EX_REGS();
 			bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 		} else {
-			printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
+			//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
 		}
 		//bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 	
 	} else if (HOLDER.format == 5) {
-		printf("myExecuteInstructionPC: %lx, myPredictedNextInstructionPC: %lx\n", myExecuteInstructionPC, myPredictedNextInstructionPC);
+		BRANCH_COUNT++;
+		//printf("myExecuteInstructionPC: %x, myPredictedNextInstructionPC: %x\n", myExecuteInstructionPC, myPredictedNextInstructionPC);
 		if (HOLDER.opcode >= 0x5A8 && HOLDER.opcode <= 0x5AF) {
 			handle_cbnz(myExecuteInstructionPC, myPredictedNextInstructionPC);
 		} else if (HOLDER.opcode >= 0x5A0 && HOLDER.opcode <= 0x5A7) {

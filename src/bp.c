@@ -108,7 +108,7 @@ void print_BTB(bp_t BP) {
 		if (BP.BTB[i].valid) {
 			printf("Index %d:\n 	Address_tag: %lx \n", i, BP.BTB[i].address_tag);
 			printf("	Valid bit: %d, Unconditional Bit; %d\n", BP.BTB[i].valid, BP.BTB[i].unconditional);
-			printf("Branch Target: %x\n", BP.BTB[i].branch_target);
+			printf("Branch Target: %lx\n", BP.BTB[i].branch_target);
 		}
 	}
 }
