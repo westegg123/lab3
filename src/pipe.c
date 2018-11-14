@@ -408,7 +408,6 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 		BUBBLE = 1;
 		CURRENT_STATE.PC = myActualNextInstructionPC;
 	}
-	BUBBLE = 1;
 	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
 }
 
