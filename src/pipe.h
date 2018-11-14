@@ -29,13 +29,13 @@ typedef struct CPU_State {
 typedef struct IF_ID_REGS {
 	uint64_t PC, instruction;
 	BTB_entry_t accessed_entry;
-	//int taken;
+	int PHT_result;
 } IF_ID_REGS;
 
 typedef struct ID_EX_REGS {
 	uint64_t PC, instruction, immediate, primary_data_holder, secondary_data_holder;
 	BTB_entry_t accessed_entry;
-	//int taken;
+	int PHT_result;
 } ID_EX_REGS;
 
 typedef struct EX_MEM_REGS {
