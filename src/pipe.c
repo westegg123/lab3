@@ -42,7 +42,7 @@ int BUBBLE = 0;
 int BRANCH_COUNT = 0, PREDICTION_MISS = 0;
 
 /************************ TURN ON VERBOSE MODE IF 1 ******************************/
-int VERBOSE = 1;
+int VERBOSE = 0;
 
 /************************************ CONSTANTS ************************************/
 /* 
@@ -264,7 +264,8 @@ void handle_subs() {
 }
 
 void handle_br(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructionPC) {
-	uint32_t myActualNextInstructionPC = aExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
+	uint32_t myActualNextInstructionPC = CURRENT_REGS.ID_EX.primary_data_holder;
+
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
 		//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
 		BUBBLE = 1;
@@ -276,6 +277,17 @@ void handle_br(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructio
 		bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 	} else {
 		//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
+		BTB_entry_t myBTB_entry = BP.BTB[get_instruction_segment(2, 11, aExecuteInstructionPC)];
+		if ((myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC) &&
+			((aPredictedNextInstructionPC - aExecuteInstructionPC) == 4)) {
+			//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+			PREDICTION_MISS++;
+			BUBBLE = 1;
+			CURRENT_STATE.PC = myActualNextInstructionPC;
+			clear_IF_ID_REGS();
+			clear_ID_EX_REGS();
+			bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
+		}
 	}
 }
 
@@ -687,7 +699,7 @@ void pipe_stage_execute() {
 
 		uint32_t myActualNextInstructionPC = myExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
 		if (myActualNextInstructionPC != myPredictedNextInstructionPC) {
-			printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+			//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
 			PREDICTION_MISS++;
 			BUBBLE = 1;
 			CURRENT_STATE.PC = myActualNextInstructionPC;
@@ -695,11 +707,11 @@ void pipe_stage_execute() {
 			clear_ID_EX_REGS();
 			bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
 		} else {
-			printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
+			//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
 			BTB_entry_t myBTB_entry = BP.BTB[get_instruction_segment(2, 11, myExecuteInstructionPC)];
 			if ((myBTB_entry.valid != 1 || myBTB_entry.address_tag != myExecuteInstructionPC) &&
-				CURRENT_REGS.ID_EX.immediate == 4) {
-				printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
+				(CURRENT_REGS.ID_EX.immediate == 4)) {
+				//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
 				PREDICTION_MISS++;
 				BUBBLE = 1;
 				CURRENT_STATE.PC = myActualNextInstructionPC;
@@ -814,5 +826,9 @@ void pipe_stage_fetch() {
 		}
 
 		bp_predict();
-	} 
+	} else {
+		if (VERBOSE) {
+			printf("\n");
+		}
+	}
 }

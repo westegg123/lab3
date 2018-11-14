@@ -73,7 +73,7 @@ int should_take_branch(int aSaturatingCounter) {
 }
 
 void bp_predict() {
-    print_bp(BP);
+    //print_bp(BP);
     uint64_t myPCPrediction = CURRENT_STATE.PC + 4;
     gshare_t myGshare = BP.gshare;
     BTB_entry_t myBTB_entry = BP.BTB[get_BTB_index(CURRENT_STATE.PC)];
