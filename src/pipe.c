@@ -38,7 +38,6 @@ bp_t BP;
 /* FLAGS */
 int FETCH_MORE = 1;
 int BUBBLE = 0;
-int BRANCH_STALL = 0;
 int PREDICTION_MISS = 0;
 int CORRECT_BRANCHES_NUMBER = 0;
 /* Notes on forwarding:
@@ -352,7 +351,6 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 	// printf("B.COND PREDICTED BRANCH: %lx - B.COND ACTUAL BRANCH: %lx\n", aPredictedNextInstructionPC, myActualNextInstructionPC);
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
 		// printf("B.COND BRANCH: PREDICTION INCORRECT.\n");
-		// BRANCH_STALL = 1;
 		clear_IF_ID_REGS();
 		clear_ID_EX_REGS();
 		BUBBLE = 1;
@@ -379,7 +377,6 @@ void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstruct
 
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
 		printf("CBNZ BRANCH: PREDICTION INCORRECT.\n");
-		// BRANCH_STALL = 1;
 		clear_IF_ID_REGS();
 		clear_ID_EX_REGS();
 		BUBBLE = 1;
@@ -402,7 +399,6 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
 		printf("CBZ BRANCH: PREDICTION INCORRECT.\n");
-		// BRANCH_STALL = 1;
 		clear_IF_ID_REGS();
 		clear_ID_EX_REGS();
 		BUBBLE = 1;
@@ -731,10 +727,6 @@ void pipe_stage_decode() {
 			CURRENT_REGS.ID_EX.secondary_data_holder = 
 				get_instruction_segment(16,21, CURRENT_REGS.IF_ID.instruction);
 		}
-
-		if (INSTRUCTION_HOLDER.opcode == BR) {
-			BRANCH_STALL = 1;
-		}
 	} else if (INSTRUCTION_HOLDER.format == 2) { // I
 	 	CURRENT_REGS.ID_EX.primary_data_holder = CURRENT_STATE.REGS[INSTRUCTION_HOLDER.Rn];
 	 	CURRENT_REGS.ID_EX.immediate = INSTRUCTION_HOLDER.ALU_immediate;
@@ -750,7 +742,6 @@ void pipe_stage_decode() {
 
 	} else if (INSTRUCTION_HOLDER.format == 4) { // B
 		CURRENT_REGS.ID_EX.immediate = sign_extend(INSTRUCTION_HOLDER.BR_address, 26, 2);
-		// BRANCH_STALL = 1;
 	} else if (INSTRUCTION_HOLDER.format == 5) { // CB
 		if ((INSTRUCTION_HOLDER.opcode >= 0x5A8 && INSTRUCTION_HOLDER.opcode <= 0x5AF) || 
 			(INSTRUCTION_HOLDER.opcode >= 0x5A0 && INSTRUCTION_HOLDER.opcode <= 0x5A7)) {
@@ -758,7 +749,6 @@ void pipe_stage_decode() {
 		}
 
  		CURRENT_REGS.ID_EX.immediate = sign_extend(INSTRUCTION_HOLDER.COND_BR_address, 19, 2);
- 		// BRANCH_STALL = 1;
 	} else if (INSTRUCTION_HOLDER.format == 6) { // IM/IW
 		CURRENT_REGS.ID_EX.immediate = INSTRUCTION_HOLDER.MOV_immediate;
 	}
@@ -769,12 +759,7 @@ void pipe_stage_decode() {
 
 void pipe_stage_fetch() {
 	// printf("Fetch -----------> ");
-	if (BRANCH_STALL == 1) {
-		printf("STALLING\n");
-		clear_IF_ID_REGS();
-		BRANCH_STALL = 0;
-		// return;
-	} else if (BUBBLE != 0) {
+	if (BUBBLE != 0) {
 		printf("BUBBLE\n");
 		return;
 	}
