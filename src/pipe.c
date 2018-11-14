@@ -39,7 +39,6 @@ bp_t BP;
 /* FLAGS */
 int FETCH_MORE = 1;
 int BUBBLE = 0;
-int CORRECT_BRANCHES_NUMBER = 0;
 int BRANCH_COUNT = 0, PREDICTION_MISS = 0;
 
 /************************ TURN ON VERBOSE MODE IF 1 ******************************/
@@ -366,12 +365,7 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 
 		clear_IF_ID_REGS();
 		clear_ID_EX_REGS();
-	} else {
-		CORRECT_BRANCHES_NUMBER += 1;
-	}
-
-
-	printf("CORRECT BRANCHES: %d\n", CORRECT_BRANCHES_NUMBER);
+	} 
 	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
 }
 
