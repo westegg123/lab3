@@ -694,9 +694,7 @@ void pipe_stage_execute() {
 			clear_IF_ID_REGS();
 			clear_ID_EX_REGS();
 			bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
-			print_bp(BP);
 		} else {
-			print_bp(BP);
 			printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
 		}
 		//bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
@@ -797,10 +795,10 @@ void pipe_stage_fetch() {
 		clear_IF_ID_REGS();
 		CURRENT_REGS.IF_ID.instruction = mem_read_32(CURRENT_STATE.PC);
 		CURRENT_REGS.IF_ID.PC = CURRENT_STATE.PC;
+		if (VERBOSE) {
+			print_operation(CURRENT_REGS.IF_ID.instruction);
+		}
+
 		bp_predict();
 	} 
-
-	if (VERBOSE) {
-		print_operation(CURRENT_REGS.IF_ID.instruction);
-	}
 }
