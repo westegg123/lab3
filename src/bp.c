@@ -61,7 +61,7 @@ void update_BTB(uint64_t aAddressTag, uint64_t aTargetBranch, int aIsConditional
 	uint32_t myBTBIndex = get_BTB_index(aAddressTag);
 	BP.BTB[myBTBIndex].branch_target = aTargetBranch;
 	BP.BTB[myBTBIndex].address_tag = aAddressTag;
-	BP.BTB[myBTBIndex].unconditional = (!aIsConditional);
+	BP.BTB[myBTBIndex].conditional = aIsConditional;
 	BP.BTB[myBTBIndex].valid = aIsValid;
 }
 
@@ -79,7 +79,7 @@ void bp_predict() {
     BTB_entry_t myBTB_entry = BP.BTB[get_BTB_index(CURRENT_STATE.PC)];
 
     // if (BP.BTB[myBTB_index].branch_target != 0) {
-    // 	if ((BP.BTB[myBTB_index].unconditional == 1) || 
+    // 	if ((BP.BTB[myBTB_index].conditional == 1) || 
     // 		should_take_branch(myGshare.PHT[myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC)])) {
     // 		// printf("BTB HIT!\n");
     // 		myPCPrediction = BP.BTB[myBTB_index].branch_target;
@@ -88,8 +88,8 @@ void bp_predict() {
 
     printf("This is my index: %d\n", get_BTB_index(CURRENT_STATE.PC));
     if (myBTB_entry.valid == 1 && myBTB_entry.address_tag == CURRENT_STATE.PC) {
-		if (myBTB_entry.unconditional == 0) {
-			printf("BTB HIT! (UNCONDITIONAL)\n");
+		if (myBTB_entry.conditional == 0) {
+			printf("BTB HIT! (conditional)\n");
 			myPCPrediction = myBTB_entry.branch_target;
 		} else {
 			if (should_take_branch(myGshare.PHT[(myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC))])) {
@@ -99,7 +99,7 @@ void bp_predict() {
 		}
     }
 
-    // printf("PREDICTING: %lx\n", myPCPrediction);
+    printf("PREDICTING: %lx\n", myPCPrediction);
     CURRENT_STATE.PC = myPCPrediction;
 }
 
@@ -113,7 +113,7 @@ bp_t intialize_bp(bp_t BP) {
 	for (int i = 0; i < BTB_SIZE; i++) {
 		BP.BTB[i].address_tag = 0;
 		BP.BTB[i].valid = 0;
-		BP.BTB[i].unconditional = 0;
+		BP.BTB[i].conditional = 0;
 		BP.BTB[i].branch_target = 0;
 	}
 	return BP;
@@ -123,14 +123,14 @@ void print_BTB(bp_t BP) {
 	for (int i = 0; i < BTB_SIZE; i++) {
 		if (BP.BTB[i].valid) {
 			printf("Index %d:\n 	Address_tag: %lx \n", i, BP.BTB[i].address_tag);
-			printf("	Valid bit: %d, Unconditional Bit; %d\n", BP.BTB[i].valid, BP.BTB[i].unconditional);
-			printf("Branch Target: %lx\n", BP.BTB[i].branch_target);
+			printf("	Valid bit: %d, Conditional Bit; %d\n", BP.BTB[i].valid, BP.BTB[i].conditional);
+			printf("	Branch Target: %lx\n", BP.BTB[i].branch_target);
 		}
 	}
 }
 
 void print_Gshare(bp_t BP) {
-	printf("GHSARE\n");
+	printf("GSHARE\n");
 	printf("GHR: %x\n", BP.gshare.GHR);
 	for (int i = 0; i < PHT_SIZE; i++) {
 		if (BP.gshare.PHT[i]) {

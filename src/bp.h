@@ -20,7 +20,7 @@ typedef struct
 {
 	uint64_t address_tag;
 	int valid;
-	int unconditional;
+	int conditional;
 	uint64_t branch_target;
 } BTB_entry_t;
 
