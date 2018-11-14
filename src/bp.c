@@ -72,20 +72,26 @@ int should_take_branch(int aSaturatingCounter) {
 	return 0;
 }
 
+void evaluate_prediction(uint32_t aExecuteInstructionPC,
+	uint32_t aActualNextInstructionPC, 
+	uint32_t aPredictedNextInstructionPC, 
+	BTB_entry_t aBTBEntry, 
+	int aIsConditional, 
+	int aBranchTaken,
+	int aBranchTakenPrediction) {
+	if ((aActualNextInstructionPC != aPredictedNextInstructionPC) || (aBranchTakenPrediction != aBranchTaken)
+		|| (aBranchTaken && (aBTBEntry.valid != 1 || aBTBEntry.address_tag != aExecuteInstructionPC))) {
+		set_settings_pred_miss(aActualNextInstructionPC);
+	}
+	bp_update(aExecuteInstructionPC, aActualNextInstructionPC, aIsConditional, VALID, aBranchTaken);
+}
+
 void bp_predict() {
     //print_bp(BP);
     uint64_t myPCPrediction = CURRENT_STATE.PC + 4;
     gshare_t myGshare = BP.gshare;
     BTB_entry_t myBTB_entry = BP.BTB[get_BTB_index(CURRENT_STATE.PC)];
-
-    // if (BP.BTB[myBTB_index].branch_target != 0) {
-    // 	if ((BP.BTB[myBTB_index].conditional == 1) || 
-    // 		should_take_branch(myGshare.PHT[myGshare.GHR ^ get_8_pc_bits(CURRENT_STATE.PC)])) {
-    // 		// printf("BTB HIT!\n");
-    // 		myPCPrediction = BP.BTB[myBTB_index].branch_target;
-    // 	}
-    // }
-
+    
     //printf("This is my index: %d\n", get_BTB_index(CURRENT_STATE.PC));
     if (myBTB_entry.valid == 1 && myBTB_entry.address_tag == CURRENT_STATE.PC) {
 		if (myBTB_entry.conditional == 0) { // If Unconditional Branch

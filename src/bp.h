@@ -8,6 +8,10 @@
 #define _BP_H_
 #define BTB_SIZE 1024
 #define PHT_SIZE 256
+#define CONDITIONAL 1
+#define UNCONDITIONAL 0
+#define VALID 1
+#define INVALID 0
 #include <inttypes.h>
 
 typedef struct 
@@ -32,6 +36,7 @@ typedef struct
  
 void bp_predict(/*......*/);
 void bp_update(/*......*/);
+void evaluate_prediction();
 uint32_t get_BTB_index();
 uint32_t get_8_pc_bits();
 int should_take_branch();

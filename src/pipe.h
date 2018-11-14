@@ -13,7 +13,6 @@
 #include "bp.h"
 #include <limits.h>
 
-
 typedef struct CPU_State {
 	/* register file state */
 	int64_t REGS[ARM_REGS];
@@ -72,5 +71,8 @@ void pipe_stage_decode();
 void pipe_stage_execute();
 void pipe_stage_mem();
 void pipe_stage_wb();
+
+
+void set_settings_pred_miss();
 
 #endif

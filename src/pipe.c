@@ -14,23 +14,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-
-// /*
-//  * CMSC 22200
-//  *
-//  * Group: Andreas Komissopoulos and James Kon  
-//  * ARM pipeline timing simulator
-//  */
-
-// #include "pipe.h"
-// #include "shell.h"
-// #include "helper.h"
-// #include <stdio.h>
-// #include <string.h>
-// #include <stdlib.h>
-// #include <assert.h>
-
-
 /* global pipeline and branch prediction state */
 CPU_State CURRENT_STATE;
 Pipeline_Regs CURRENT_REGS, START_REGS;
@@ -74,12 +57,6 @@ int VERBOSE = 0;
 #define SUBIS 0x788
 #define MUL 0x4D8
 #define BR 0x6B0
-
-#define CONDITIONAL 1
-#define UNCONDITIONAL 0
-
-#define VALID 1
-#define INVALID 0
 /************************************ END OF CONSTANTS ************************************/
 
 
@@ -275,21 +252,13 @@ void handle_subs() {
 void handle_br(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructionPC) {
 	uint32_t myActualNextInstructionPC = CURRENT_REGS.ID_EX.primary_data_holder;
 
-	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
-		set_settings_pred_miss(myActualNextInstructionPC);
-		//bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
-	} else {
-		//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
-		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
-		if ((myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC) &&
-			((aPredictedNextInstructionPC - aExecuteInstructionPC) == 4)) {
-			//printf("UNCONDITIONAL BRANCH (BR): PREDICTION INCORRECT. - LUCKY GUESS\n");
-			set_settings_pred_miss(myActualNextInstructionPC);
-			//bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
-		}
-	}
-	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
+	evaluate_prediction(aExecuteInstructionPC,
+		myActualNextInstructionPC, 
+		aPredictedNextInstructionPC, 
+		CURRENT_REGS.ID_EX.accessed_entry,
+		CONDITIONAL,
+		1,
+		CURRENT_REGS.ID_EX.PHT_result);
 }
 
 void handle_mul() {
@@ -316,8 +285,6 @@ void handle_subis() {
 
 
 /******************************* CB EXECUTION INSTRUCTIONS HANLDERS *******************************/
-
-
 void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructionPC) {
 	uint32_t cond = (HOLDER.Rt & 14) >> 1;
 	int flag_N = CURRENT_STATE.FLAG_N;
@@ -369,19 +336,13 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 		myBranchTaken = 0;
 	}
 
-	// printf("B.COND PREDICTED BRANCH: %lx - B.COND ACTUAL BRANCH: %lx\n", aPredictedNextInstructionPC, myActualNextInstructionPC);
-	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		//printf("B.COND BRANCH: PREDICTION INCORRECT.\n");
-		set_settings_pred_miss(myActualNextInstructionPC);
-	} else {
-		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
-		if (myBranchTaken && (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
-			myBTB_entry.branch_target != myActualNextInstructionPC)) {
-			// printf("B.COND BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
-			set_settings_pred_miss(myActualNextInstructionPC);
-		}
-	}
-	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
+	evaluate_prediction(aExecuteInstructionPC,
+		myActualNextInstructionPC, 
+		aPredictedNextInstructionPC, 
+		CURRENT_REGS.ID_EX.accessed_entry,
+		CONDITIONAL,
+		myBranchTaken,
+		CURRENT_REGS.ID_EX.PHT_result);
 }
 
 void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructionPC) {
@@ -396,25 +357,19 @@ void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstruct
 		myActualNextInstructionPC = aExecuteInstructionPC + 4;
 	}
 
-	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		//printf("CBNZ BRANCH: PREDICTION INCORRECT.\n");
-		set_settings_pred_miss(myActualNextInstructionPC);
-	} else {
-		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
-		if (myBranchTaken && (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
-			myBTB_entry.branch_target != myActualNextInstructionPC)) {
-			//printf("tar: %lx\n", myBTB_entry.branch_target);
-			// printf("CBNZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
-			set_settings_pred_miss(myActualNextInstructionPC);
-		}
-	}
-
-	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
+	evaluate_prediction(aExecuteInstructionPC,
+		myActualNextInstructionPC, 
+		aPredictedNextInstructionPC, 
+		CURRENT_REGS.ID_EX.accessed_entry,
+		CONDITIONAL,
+		myBranchTaken,
+		CURRENT_REGS.ID_EX.PHT_result);
 }
 
 
 void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructionPC) {
 	int myBranchTaken;
+	int myTakenPrediction = CURRENT_REGS.ID_EX.PHT_result;
 	uint32_t myActualNextInstructionPC;
 	if (CURRENT_REGS.ID_EX.secondary_data_holder == 0) {
 		myBranchTaken = 1;
@@ -424,28 +379,13 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 		myActualNextInstructionPC = CURRENT_REGS.ID_EX.PC + 4;
 	}
 
-	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		//printf("CBZ BRANCH: PREDICTION INCORRECT.\n");
-		set_settings_pred_miss(myActualNextInstructionPC);
-	} else {
-		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
-		if (myBranchTaken && (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
-			myBTB_entry.branch_target != myActualNextInstructionPC)) {
-			//printf("tar: %lx\n", myBTB_entry.branch_target);
-			// printf("CBNZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
-			set_settings_pred_miss(myActualNextInstructionPC);
-		}
-		// ONLY CONCERNED IF THE TARGET BRANCH IS CP + 4 - THAT MEANS THAT IMMEDIATE = 4
-		// if (CURRENT_REGS.ID_EX.immediate == 4) {
-		// 	if (myBranchTaken != (myBTB_entry.valid == 1 && myBTB_entry.address_tag == aExecuteInstructionPC
-		// 		&& CURRENT_REGS.ID_EX.PHT_result == 1)) {
-		// 		//printf("CBZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
-		// 		set_settings_pred_miss(myActualNextInstructionPC);
-		// 	}
-		// }
-
-	}
-	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
+	evaluate_prediction(aExecuteInstructionPC,
+		myActualNextInstructionPC, 
+		aPredictedNextInstructionPC, 
+		CURRENT_REGS.ID_EX.accessed_entry,
+		CONDITIONAL,
+		myBranchTaken,
+		CURRENT_REGS.ID_EX.PHT_result);
 }
 
 /************************************ END OF HELPERS ************************************/
@@ -481,8 +421,6 @@ void pipe_stage_wb() {
 	if (CURRENT_REGS.MEM_WB.instruction == 0) {
 		return;
 	} else if (CURRENT_REGS.MEM_WB.instruction == HLT) {
-		//printf("FINITO\n");
-		//get_hit_stats();
 		stat_inst_retire++;
 		RUN_BIT = 0;
 		return;
@@ -601,7 +539,6 @@ void pipe_stage_execute() {
 	// printf("PC OF INSTRUCTION TO EXECUTE: %lx. PC OF NEXT INSTRUCTION: %lx\n", CURRENT_REGS.ID_EX.PC, CURRENT_REGS.IF_ID.PC);
 
 	if (CURRENT_REGS.ID_EX.instruction == 0) {
-		//printf("Execute Skipped\n");
 		clear_EX_MEM_REGS();
 		return;
 	} else if (CURRENT_REGS.ID_EX.instruction == HLT) {
@@ -622,7 +559,6 @@ void pipe_stage_execute() {
 
 	parsed_instruction_holder HOLDER = get_holder(CURRENT_REGS.ID_EX.instruction);	
 
-	//check if there is immediate dependicies (EX/MEM to ID/EX), then check dependicies between (MEM/WB and ID/EX)
 	int MEM_forward = forward(CURRENT_REGS.ID_EX.instruction, CURRENT_REGS.EX_MEM.instruction);
 	int WB_forward = forward(CURRENT_REGS.ID_EX.instruction, START_REGS.MEM_WB.instruction);
 
@@ -632,7 +568,6 @@ void pipe_stage_execute() {
 		forward_data(HOLDER, WB_forward, START_REGS.MEM_WB.ALU_result);
 	}
 
-	// if (CURRENT_REGS.EX_MEM.instruction == 0) {
 	if (get_memRead(get_holder(START_REGS.MEM_WB.instruction).opcode)) {
 		int bubble_result = hazard_detection_unit(CURRENT_REGS.ID_EX.instruction, START_REGS.MEM_WB.instruction);
 		forward_data(HOLDER, bubble_result, CURRENT_REGS.MEM_WB.fetched_data);
@@ -717,24 +652,13 @@ void pipe_stage_execute() {
 		BRANCH_COUNT++;
 
 		uint32_t myActualNextInstructionPC = myExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
-		if (myActualNextInstructionPC != myPredictedNextInstructionPC) {
-			//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
-			set_settings_pred_miss(myActualNextInstructionPC);
-			//bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
-		} else {
-			//printf("UNCONDITIONAL BRANCH: PREDICTION CORRECT.\n");
-			BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
-			//BTB_entry_t myBTB_entry = BP.BTB[get_instruction_segment(2, 11, myExecuteInstructionPC)];
-			
-			// HANDLES THE CASE THAT YOU ARE LUCKY
-			if (myBTB_entry.valid != 1 || myBTB_entry.address_tag != myExecuteInstructionPC || 
-				myBTB_entry.branch_target != myActualNextInstructionPC) {
-				//printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
-				set_settings_pred_miss(myActualNextInstructionPC);
-				//bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
-			}
-		}	
-		bp_update(myExecuteInstructionPC, myActualNextInstructionPC, UNCONDITIONAL, VALID, -5);
+		evaluate_prediction(myExecuteInstructionPC,
+			myActualNextInstructionPC, 
+			myPredictedNextInstructionPC, 
+			CURRENT_REGS.ID_EX.accessed_entry,
+			UNCONDITIONAL,
+			1,
+			CURRENT_REGS.ID_EX.PHT_result);
 			
 	} else if (HOLDER.format == 5) {
 		BRANCH_COUNT++;
@@ -781,7 +705,6 @@ void pipe_stage_decode() {
 	if (INSTRUCTION_HOLDER.format == 1) { // R
 		CURRENT_REGS.ID_EX.primary_data_holder = CURRENT_STATE.REGS[INSTRUCTION_HOLDER.Rn];
 		CURRENT_REGS.ID_EX.secondary_data_holder = CURRENT_STATE.REGS[INSTRUCTION_HOLDER.Rm];
-		//printf("This is the secondary data holder: %lx\n", CURRENT_REGS.ID_EX.secondary_data_holder);
 		if (INSTRUCTION_HOLDER.opcode == 0x69B) {
 			CURRENT_REGS.ID_EX.secondary_data_holder = INSTRUCTION_HOLDER.shamt;
 		} else if (INSTRUCTION_HOLDER.opcode == 0x69A) {
