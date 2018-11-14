@@ -371,7 +371,7 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 
 	// printf("B.COND PREDICTED BRANCH: %lx - B.COND ACTUAL BRANCH: %lx\n", aPredictedNextInstructionPC, myActualNextInstructionPC);
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		printf("B.COND BRANCH: PREDICTION INCORRECT.\n");
+		//printf("B.COND BRANCH: PREDICTION INCORRECT.\n");
 		set_settings_pred_miss(myActualNextInstructionPC);
 	} else {
 		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
@@ -403,7 +403,7 @@ void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstruct
 		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
 		if (myBranchTaken && (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
 			myBTB_entry.branch_target != myActualNextInstructionPC)) {
-			printf("tar: %lx\n", myBTB_entry.branch_target);
+			//printf("tar: %lx\n", myBTB_entry.branch_target);
 			// printf("CBNZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
@@ -431,7 +431,7 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 		BTB_entry_t myBTB_entry = CURRENT_REGS.ID_EX.accessed_entry;
 		if (myBranchTaken && (myBTB_entry.valid != 1 || myBTB_entry.address_tag != aExecuteInstructionPC || 
 			myBTB_entry.branch_target != myActualNextInstructionPC)) {
-			printf("CBZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
+			//printf("CBZ BRANCH: PREDICTION INCORRECT - LUCKY GUESS\n");
 			set_settings_pred_miss(myActualNextInstructionPC);
 		}
 
