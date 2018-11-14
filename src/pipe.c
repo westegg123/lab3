@@ -34,13 +34,13 @@
 /* global pipeline and branch prediction state */
 CPU_State CURRENT_STATE;
 Pipeline_Regs CURRENT_REGS, START_REGS;
-//bp_t *BP = malloc(sizeof(bp_t));
 bp_t BP;
 /* FLAGS */
 int FETCH_MORE = 1;
 int BUBBLE = 0;
 int BRANCH_STALL = 0;
 int PREDICTION_MISS = 0;
+int CORRECT_BRANCHES_NUMBER = 0;
 /* Notes on forwarding:
  * For bubbling, need to implement a control for each function
  * For forwarding - need to forward in the ID stage of each dependent instruction
@@ -311,7 +311,7 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 		MEM_instruct.opcode == (SUBIS + 1)) {
 
 		flag_Z = (START_REGS.EX_MEM.ALU_result == 0) ? 1 : 0;
-		flag_N = (START_REGS.EX_MEM.ALU_result < 0) ? 1 : 0;
+		flag_N = ((long)START_REGS.EX_MEM.ALU_result < 0) ? 1 : 0;
 	}
 
 	if (cond == 0) {
@@ -349,18 +349,22 @@ void handle_bcond(parsed_instruction_holder HOLDER, uint32_t aExecuteInstruction
 		myBranchTaken = 0;
 	}
 
-	printf("B.COND PREDICTED BRANCH: %lx - B.COND ACTUAL BRANCH: %lx\n", aPredictedNextInstructionPC, myActualNextInstructionPC);
+	// printf("B.COND PREDICTED BRANCH: %lx - B.COND ACTUAL BRANCH: %lx\n", aPredictedNextInstructionPC, myActualNextInstructionPC);
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
-		printf("B.COND BRANCH: PREDICTION INCORRECT.\n");
-		BRANCH_STALL = 1;
+		// printf("B.COND BRANCH: PREDICTION INCORRECT.\n");
+		// BRANCH_STALL = 1;
 		clear_IF_ID_REGS();
 		clear_ID_EX_REGS();
+		BUBBLE = 1;
 		CURRENT_STATE.PC = myActualNextInstructionPC;
+	} else {
+		CORRECT_BRANCHES_NUMBER += 1;
 	}
 
+
+	printf("CORRECT BRANCHES: %d\n", CORRECT_BRANCHES_NUMBER);
 	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
 }
-
 
 void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructionPC) {
 	int myBranchTaken;
@@ -375,9 +379,10 @@ void handle_cbnz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstruct
 
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
 		printf("CBNZ BRANCH: PREDICTION INCORRECT.\n");
-		BRANCH_STALL = 1;
+		// BRANCH_STALL = 1;
 		clear_IF_ID_REGS();
 		clear_ID_EX_REGS();
+		BUBBLE = 1;
 		CURRENT_STATE.PC = myActualNextInstructionPC;
 	}
 	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
@@ -397,11 +402,13 @@ void handle_cbz(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructi
 
 	if (myActualNextInstructionPC != aPredictedNextInstructionPC) {
 		printf("CBZ BRANCH: PREDICTION INCORRECT.\n");
-		BRANCH_STALL = 1;
+		// BRANCH_STALL = 1;
 		clear_IF_ID_REGS();
 		clear_ID_EX_REGS();
+		BUBBLE = 1;
 		CURRENT_STATE.PC = myActualNextInstructionPC;
 	}
+	BUBBLE = 1;
 	bp_update(aExecuteInstructionPC, myActualNextInstructionPC, CONDITIONAL, VALID, myBranchTaken);
 }
 
@@ -425,8 +432,8 @@ void pipe_cycle() {
 }
 
 void pipe_stage_wb() {
-	printf("\nWrite BACK -----------> ");
-	print_operation(CURRENT_REGS.MEM_WB.instruction);
+	// printf("\nWrite BACK -----------> ");
+	// print_operation(CURRENT_REGS.MEM_WB.instruction);
 	if (CURRENT_REGS.MEM_WB.instruction == 0) {
 		//printf("Write Back Stage Skipped\n");
 		return;
@@ -483,8 +490,8 @@ void pipe_stage_wb() {
 }
 
 void pipe_stage_mem() {
-	printf("Memory -----------> ");
-	print_operation(CURRENT_REGS.EX_MEM.instruction);
+	// printf("Memory -----------> ");
+	// print_operation(CURRENT_REGS.EX_MEM.instruction);
 
 	if (CURRENT_REGS.EX_MEM.instruction == 0) {
 		//printf("Memmeory Stage Skipped\n");
@@ -526,10 +533,23 @@ void pipe_stage_mem() {
 	CURRENT_REGS.MEM_WB.instruction = CURRENT_REGS.EX_MEM.instruction;
 }
 
+void forward_data (parsed_instruction_holder HOLDER, int result, uint64_t data) {
+	if (result == 1) {
+		CURRENT_REGS.ID_EX.primary_data_holder = data;
+		if (HOLDER.format == 1 && HOLDER.opcode != BR) {
+			if (HOLDER.Rm == HOLDER.Rn) {
+				CURRENT_REGS.ID_EX.secondary_data_holder = data;	
+			}
+		}
+	} else if (result == 2) {
+		CURRENT_REGS.ID_EX.secondary_data_holder = data;
+	}
+}
+
 // R INSTR EXECUTE STAGE
 void pipe_stage_execute() {
-	printf("Execute -----------> ");
-	print_operation(CURRENT_REGS.ID_EX.instruction);
+	// printf("Execute -----------> ");
+	// print_operation(CURRENT_REGS.ID_EX.instruction);
 
 	// printf("PC OF INSTRUCTION TO EXECUTE: %lx. PC OF NEXT INSTRUCTION: %lx\n", CURRENT_REGS.ID_EX.PC, CURRENT_REGS.IF_ID.PC);
 
@@ -556,32 +576,16 @@ void pipe_stage_execute() {
 	int MEM_forward = forward(CURRENT_REGS.ID_EX.instruction, CURRENT_REGS.EX_MEM.instruction);
 	int WB_forward = forward(CURRENT_REGS.ID_EX.instruction, START_REGS.MEM_WB.instruction);
 
-	//printf("This is Mem forward: %u\n", MEM_forward);
-	//printf("This is WB forward: %u\n", WB_forward);
-
-	//printf("MEM - Instruction 1: %lx <----- Instruction 2: %lx\n", CURRENT_REGS.EX_MEM.instruction, CURRENT_REGS.ID_EX.instruction);
-	if (MEM_forward == 1) {
-		CURRENT_REGS.ID_EX.primary_data_holder = CURRENT_REGS.EX_MEM.ALU_result;
-	} else if (MEM_forward == 2) {
-		CURRENT_REGS.ID_EX.secondary_data_holder = CURRENT_REGS.EX_MEM.ALU_result;
-	}
-
+	forward_data(HOLDER, MEM_forward, CURRENT_REGS.EX_MEM.ALU_result);
+	
 	if ((WB_forward != 0) && (MEM_forward != WB_forward)) {
-		if (WB_forward == 1) {
-			CURRENT_REGS.ID_EX.primary_data_holder = START_REGS.MEM_WB.ALU_result;
-		} else {
-			CURRENT_REGS.ID_EX.secondary_data_holder = START_REGS.MEM_WB.ALU_result;
-		}
+		forward_data(HOLDER, WB_forward, START_REGS.MEM_WB.ALU_result);
 	}
 
 	// if (CURRENT_REGS.EX_MEM.instruction == 0) {
 	if (get_memRead(get_holder(START_REGS.MEM_WB.instruction).opcode)) {
 		int bubble_result = hazard_detection_unit(CURRENT_REGS.ID_EX.instruction, START_REGS.MEM_WB.instruction);
-		if (bubble_result == 1) {
-			CURRENT_REGS.ID_EX.primary_data_holder = START_REGS.MEM_WB.fetched_data;
-		} else if (bubble_result == 2) {
-			CURRENT_REGS.ID_EX.secondary_data_holder = START_REGS.MEM_WB.fetched_data;
-		}	
+		forward_data(HOLDER, bubble_result, CURRENT_REGS.MEM_WB.fetched_data);
 	}
 
 
@@ -664,7 +668,7 @@ void pipe_stage_execute() {
 
 			if (myActualNextInstructionPC != myPredictedNextInstructionPC) {
 				printf("UNCONDITIONAL BRANCH: PREDICTION INCORRECT.\n");
-				BRANCH_STALL = 1;
+				BUBBLE = 1;
 				PREDICTION_MISS = 1;
 				clear_IF_ID_REGS();
 				clear_ID_EX_REGS();
@@ -695,8 +699,8 @@ void pipe_stage_execute() {
 
 
 void pipe_stage_decode() {
-	printf("Decode -----------> ");
-	print_operation(CURRENT_REGS.IF_ID.instruction);
+	// printf("Decode -----------> ");
+	// print_operation(CURRENT_REGS.IF_ID.instruction);
 
 	if (BUBBLE != 0) {
 		return;
@@ -765,7 +769,7 @@ void pipe_stage_decode() {
 }
 
 void pipe_stage_fetch() {
-	printf("Fetch -----------> ");
+	// printf("Fetch -----------> ");
 	if (BRANCH_STALL == 1) {
 		printf("STALLING\n");
 		clear_IF_ID_REGS();
@@ -780,7 +784,7 @@ void pipe_stage_fetch() {
 	if (FETCH_MORE != 0) {
 		clear_IF_ID_REGS();
 		CURRENT_REGS.IF_ID.instruction = mem_read_32(CURRENT_STATE.PC);
-		print_operation(CURRENT_REGS.IF_ID.instruction);
+		// print_operation(CURRENT_REGS.IF_ID.instruction);
 		CURRENT_REGS.IF_ID.PC = CURRENT_STATE.PC;
 		bp_predict();
 		//CURRENT_STATE.PC += 4;
