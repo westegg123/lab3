@@ -108,6 +108,7 @@ void bp_predict() {
     //printf("This is my index: %d\n", get_BTB_index(CURRENT_STATE.PC));
     if (myBTB_entry.valid == 1 && myBTB_entry.address_tag == CURRENT_STATE.PC) {
 		if (myBTB_entry.conditional == 0) { // If Unconditional Branch
+			// printf("YOOHOO!-----------------\n");
 			//printf("BTB HIT! (UNCONDITIONAL BRANCH)\n");
 			myPCPrediction = myBTB_entry.branch_target;
 		} else { // If Conditional Branch

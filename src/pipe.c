@@ -257,9 +257,9 @@ void handle_br(uint32_t aExecuteInstructionPC, uint32_t aPredictedNextInstructio
 		myActualNextInstructionPC, 
 		aPredictedNextInstructionPC, 
 		CURRENT_REGS.ID_EX.accessed_entry,
-		CONDITIONAL,
+		UNCONDITIONAL,
 		1,
-		CURRENT_REGS.ID_EX.PHT_result);
+		1);
 }
 
 void handle_mul() {
@@ -654,13 +654,14 @@ void pipe_stage_execute() {
 		BRANCH_COUNT++;
 
 		uint32_t myActualNextInstructionPC = myExecuteInstructionPC + CURRENT_REGS.ID_EX.immediate;
+		printf("ACTUAL NEXT INSTR PC: %lx, PREDICTED NEXT INSTR PC: %lx\n", myActualNextInstructionPC, myPredictedNextInstructionPC);
 		evaluate_prediction(myExecuteInstructionPC,
 			myActualNextInstructionPC, 
 			myPredictedNextInstructionPC, 
 			CURRENT_REGS.ID_EX.accessed_entry,
 			UNCONDITIONAL,
 			1,
-			CURRENT_REGS.ID_EX.PHT_result);
+			1);
 			
 	} else if (HOLDER.format == 5) {
 		BRANCH_COUNT++;
@@ -695,6 +696,7 @@ void pipe_stage_decode() {
 	} else if (CURRENT_REGS.IF_ID.instruction == HLT) {
 		clear_ID_EX_REGS();
 		CURRENT_REGS.ID_EX.instruction = CURRENT_REGS.IF_ID.instruction;
+		// printf("FETCH MORE DECREMENT!----------------------------------------------------------------------------------- \n");
 		FETCH_MORE = 0;
 		CURRENT_STATE.PC = CURRENT_REGS.IF_ID.PC + 8;
 		clear_IF_ID_REGS();
@@ -754,11 +756,13 @@ void pipe_stage_fetch() {
 		if (VERBOSE) {
 			printf("BUBBLE\n");
 		}
+		// printf("BUBBLE. PC: %lx\n", CURRENT_STATE.PC);
 		return;
 	}
 
 
 	if (FETCH_MORE != 0) {
+		// printf("??????????????????????????????????????????????????????\n");
 		clear_IF_ID_REGS();
 		CURRENT_REGS.IF_ID.instruction = mem_read_32(CURRENT_STATE.PC);
 		CURRENT_REGS.IF_ID.PC = CURRENT_STATE.PC;

@@ -12,7 +12,6 @@ mov X6, 0
 bar:
 mov X3, 1
 mov X3, 1
-mov X3, 1
 add X6, X6, 1
 cmp X5, X6
 bgt bar
