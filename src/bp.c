@@ -13,6 +13,8 @@
 
 extern bp_t BP;
 extern CPU_State CURRENT_STATE;
+extern int CYCLE_NUM;
+extern Pipeline_Regs CURRENT_REGS;
 #define BTB_SIZE 1024
 #define PHT_SIZE 256
 
@@ -35,7 +37,7 @@ void update_GHR(int aIsConditional, int aBranchTaken) {
 	} else if (aBranchTaken == 0) /*not taken*/ {
 		BP.gshare.GHR = ((BP.gshare.GHR << 1));
 	}
-	// printf("GHR: %x\n", BP.gshare.GHR);
+	// printf("GHR: %x, TAKEN: %d\n", BP.gshare.GHR, aBranchTaken);
 }
 
 void update_PHT(uint32_t aPC, int aIsConditional, int aBranchTaken) {
@@ -45,24 +47,30 @@ void update_PHT(uint32_t aPC, int aIsConditional, int aBranchTaken) {
 
 	// printf("UPDATE PHT\n");
 	uint32_t myPHTIndex = (get_8_pc_bits(aPC) ^ BP.gshare.GHR); 
+	// printf("PHT INDEX: %d\n", myPHTIndex);
 	if (aBranchTaken == 1) {
 		if (BP.gshare.PHT[myPHTIndex] < 3) {
 			BP.gshare.PHT[myPHTIndex] += 1;
 		}
 	} else if (aBranchTaken == 0) {
+		// printf("NOT TAKEN\n");
 		if (BP.gshare.PHT[myPHTIndex] > 0 ) {
 			BP.gshare.PHT[myPHTIndex] -= 1;
 		}
 	}
 }
 
-void update_BTB(uint64_t aAddressTag, uint64_t aTargetBranch, int aIsConditional, int aIsValid) {
+void update_BTB(uint64_t aAddressTag, uint64_t aTargetBranch, int aIsConditional, int aIsValid, int aBranchTaken) {
 	// printf("UPDATE BTB\n");
-	uint32_t myBTBIndex = get_BTB_index(aAddressTag);
-	BP.BTB[myBTBIndex].branch_target = aTargetBranch;
-	BP.BTB[myBTBIndex].address_tag = aAddressTag;
-	BP.BTB[myBTBIndex].conditional = aIsConditional;
-	BP.BTB[myBTBIndex].valid = aIsValid;
+	if (aBranchTaken == 1) {
+		uint32_t myBTBIndex = get_BTB_index(aAddressTag);
+		// printf("BTB INDEX: %d:", myBTBIndex);
+		// printf("TARGET BRANCH: %d\n", aTargetBranch);
+		BP.BTB[myBTBIndex].branch_target = aTargetBranch;
+		BP.BTB[myBTBIndex].address_tag = aAddressTag;
+		BP.BTB[myBTBIndex].conditional = aIsConditional;
+		BP.BTB[myBTBIndex].valid = aIsValid;
+	}
 }
 
 int should_take_branch(int aSaturatingCounter) {
@@ -79,19 +87,24 @@ void evaluate_prediction(uint32_t aExecuteInstructionPC,
 	int aIsConditional, 
 	int aBranchTaken,
 	int aBranchTakenPrediction) {
+	// printf("ACTUAL NEXT INSTRUCTION PC: %x, PREDICTED NEXT INSTRUCTION PC: %x\n", aActualNextInstructionPC, aPredictedNextInstructionPC);
+	// printf("PREDICTION : %d, ACTUAL : %d\n", aBranchTakenPrediction, aBranchTaken);
+	// printf("BTB ADDRESS TAG: %lx, EXECUTE INSTRUCTION PC: %x\n", aBTBEntry.address_tag, aExecuteInstructionPC);
 	if ((aActualNextInstructionPC != aPredictedNextInstructionPC) || (aBranchTakenPrediction != aBranchTaken)
 		|| (aBranchTaken && (aBTBEntry.valid != 1 || aBTBEntry.address_tag != aExecuteInstructionPC))) {
+		// printf("PREDICTION MISS\n");
 		set_settings_pred_miss(aActualNextInstructionPC);
 	}
+	// print_bp(BP);
+	// printf("------------------\n");
 	bp_update(aExecuteInstructionPC, aActualNextInstructionPC, aIsConditional, VALID, aBranchTaken);
 }
 
 void bp_predict() {
-    //print_bp(BP);
     uint64_t myPCPrediction = CURRENT_STATE.PC + 4;
     gshare_t myGshare = BP.gshare;
     BTB_entry_t myBTB_entry = BP.BTB[get_BTB_index(CURRENT_STATE.PC)];
-    
+
     //printf("This is my index: %d\n", get_BTB_index(CURRENT_STATE.PC));
     if (myBTB_entry.valid == 1 && myBTB_entry.address_tag == CURRENT_STATE.PC) {
 		if (myBTB_entry.conditional == 0) { // If Unconditional Branch
@@ -107,14 +120,15 @@ void bp_predict() {
 
     // printf("PREDICTING: %lx\n", myPCPrediction);
     CURRENT_STATE.PC = myPCPrediction;
+    // print_bp(BP);
 }
 
 void print_BTB(bp_t BP) {
 	for (int i = 0; i < BTB_SIZE; i++) {
 		if (BP.BTB[i].valid) {
-			printf("Index %d:\n 	Address_tag: %lx \n", i, BP.BTB[i].address_tag);
+			printf("Index %d:\n 	Address_tag: %d \n", i, BP.BTB[i].address_tag);
 			printf("	Valid bit: %d, Conditional Bit; %d\n", BP.BTB[i].valid, BP.BTB[i].conditional);
-			printf("	Branch Target: %lx\n", BP.BTB[i].branch_target);
+			printf("	Branch Target: %d\n", BP.BTB[i].branch_target);
 		}
 	}
 }
@@ -130,13 +144,16 @@ void print_Gshare(bp_t BP) {
 }
 
 void print_bp(bp_t BP) {
+	printf("CYCLE NUM: %d\n", CYCLE_NUM);
+	printf("FETCH STAGE PC: %x\n", CURRENT_STATE.PC);
 	print_Gshare(BP);
 	print_BTB(BP);
 }
 
 void bp_update(uint64_t aAddressTag, uint64_t aTargetBranch, int aIsConditional, int aIsValid, int aBranchTaken) {
     /* Update BTB */
-	update_BTB(aAddressTag, aTargetBranch, aIsConditional, aIsValid);
+    // printf("A BRANCH TAKEN: %d\n", aBranchTaken);
+	update_BTB(aAddressTag, aTargetBranch, aIsConditional, aIsValid, aBranchTaken);
 
     /* Update gshare directional predictor */
     update_PHT(aAddressTag, aIsConditional, aBranchTaken);

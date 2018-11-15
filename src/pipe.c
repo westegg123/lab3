@@ -23,6 +23,7 @@ bp_t BP;
 int FETCH_MORE = 1;
 int BUBBLE = 0;
 int BRANCH_COUNT = 0, PREDICTION_MISS = 0;
+int CYCLE_NUM = 0;
 
 /************************ TURN ON VERBOSE MODE IF 1 ******************************/
 int VERBOSE = 0;
@@ -410,6 +411,7 @@ void pipe_cycle() {
 	if (VERBOSE) {
 		printf("-------- CYCLE END (%d, %lx) -------\n\n", (stat_cycles + 1), CURRENT_STATE.PC);
 	}
+	CYCLE_NUM++;
 }
 
 void pipe_stage_wb() {

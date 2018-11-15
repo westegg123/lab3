@@ -1,5 +1,5 @@
 .text
-mov X1, 25
+mov X1, 5
 mov X2, 0
 
 foo:
@@ -7,7 +7,7 @@ mov X3, 1
 mov X3, 1
 mov X3, 1
 
-mov X5, 25
+mov X5, 5
 mov X6, 0
 bar:
 mov X3, 1
